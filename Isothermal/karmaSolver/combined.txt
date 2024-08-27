@@ -1,0 +1,285 @@
+// Function to initialize psi and u fields
+#include "fvCFD.H"
+
+void initializeFields(volScalarField& psi, volScalarField& u, const fvMesh& mesh, scalar radius, scalar delta)
+{
+    forAll(psi, cellI)
+    {
+        const point& pt = mesh.C()[cellI];  // Get the cell center point
+
+        if (pow(pt.x(), 2) + pow(pt.y(), 2) < pow(radius, 2) )
+        {
+            psi[cellI] = 1.0;
+            u[cellI] =  - delta; // solid
+        }
+        else
+        {
+            psi[cellI] = -1.0;
+            u[cellI] = -delta; // liquid
+        }
+    }
+}
+// Create scalar field for psi
+volScalarField psi
+(
+    IOobject
+    (
+        "psi",
+        runTime.timeName(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::AUTO_WRITE
+    ),
+    mesh
+);
+volScalarField u
+(
+    IOobject
+    (
+        "u",
+        runTime.timeName(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::AUTO_WRITE
+    ),
+    mesh
+);
+// Create scalar field for theta
+volScalarField theta
+(
+    IOobject
+    (
+        "theta",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,  
+        IOobject::NO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("zero", dimensionSet(0, 0, 0, 0, 0, 0, 0), 0.0) // Initialize to zero
+);
+// Create scalar field for epsilonDerivative
+volScalarField epsilonDerivative
+(
+    IOobject
+    (
+        "epsilonDerivative",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("zero", dimensionSet(0, 1, 0, 0, 0), 0.0) // Initialize to zero
+);
+// Create scalar field for epsilon
+volScalarField epsilon
+(
+    IOobject
+    (
+        "epsilon",
+        runTime.timeName(),
+        mesh,
+        IOobject::NO_READ,  // Set to NO_READ if calculated internally, change to MUST_READ if initialized from a file
+        IOobject::NO_WRITE
+    ),
+    mesh,
+    dimensionedScalar("zero", dimensionSet(0, 1, 0, 0, 0), 0.0) // Initialize to zero, will be calculated based on theta
+);
+dimensionedScalar D_u("D_u", dimensionSet(0, 2, -1, 0, 0), 2.0); // Corrected dimensions for diffusivity [L^2 T^-1]
+dimensionedScalar tau0("tau0", dimensionSet(0, 0, 1, 0, 0), 1.0);  // Corrected dimensions for tau0 [T]
+dimensionedScalar W0("W0", dimensionSet(0, 1, 0, 0, 0), 1.0);    
+dimensionedScalar ep4("ep4", dimensionSet(0, 0, 0, 0, 0), 0.02);
+dimensionedScalar lambda("lambda", dimensionSet(0, 0, 0, 0, 0), 3.1913); // Lambda is dimensionless
+dimensionedScalar anisotropy("anisotropy", dimensionSet(0, 0, 0, 0, 0), 4.0); // Mode number of anisotropy [dimensionless]
+scalar k = 0.15;
+scalar radius = 20.0;  // this is the radius of the solid circle squared
+scalar delta = 0.55;  // this is the initial value of u in the liquid region or omega
+
+
+
+
+
+
+
+#include "volFields.H"
+#include "fvCFD.H"
+#include "dimensionedScalar.H"
+
+// Function to calculate epsilon(theta)
+void calculateEpsilon(
+    const volScalarField& theta,         // Input field for theta
+    const dimensionedScalar& W0, // Base value of epsilon
+    const dimensionedScalar& ep4,      // Anisotropy strength
+    const dimensionedScalar& anisotropy, // Anisotropy mode number
+    volScalarField& epsilon              // Reference to the result field
+)
+{
+    // Calculate epsilon = w0 * (1.0 + ep4 * cos(anisotropy * theta))
+    epsilon = W0 * (1.0 + ep4 * Foam::cos(anisotropy * theta));
+
+    // Optional: Write the epsilon field to disk for post-processing
+}
+
+// Function to calculate the derivative of epsilon with respect to theta
+void calculateEpsilonDerivative(
+    const volScalarField& theta,         // Input field for theta
+    const dimensionedScalar& W0, // Base value of epsilon
+    const dimensionedScalar& ep4,      // Anisotropy strength
+    const dimensionedScalar& anisotropy, // Anisotropy mode number
+    volScalarField& epsilonDerivative    // Reference to the result field
+)
+{
+    // Calculate epsilonDerivative = -w0 * anisotropy * ep4 * sin(anisotropy * theta)
+    epsilonDerivative = -W0 * anisotropy * ep4 * Foam::sin(anisotropy * theta);
+
+
+    // Optional: Write the epsilonDerivative field to disk for post-processing
+}
+
+
+#ifndef PHI_EQUATION_H
+#define PHI_EQUATION_H
+#include "fvCFD.H"
+#include "volFields.H"
+#include "dimensionedScalar.H"
+// Function to solve the phi equation
+void solvePhiEquation(
+    volScalarField& psi,                   // Field for phi
+    volScalarField& epsilon,         // Field for epsilon(theta)
+    volScalarField& epsilonDerivative, // Field for epsilon'(theta)
+    volScalarField& u,                 // Field for u
+    dimensionedScalar& lambda, 
+    dimensionedScalar& tau0,          // Diffusion coefficient for u
+    dimensionedScalar& W0,
+    Time& runTime                   // Time object for simulation time
+)
+{
+    // Compute the gradient of phi
+    volVectorField gradPhi = fvc::grad(psi);
+    // Calculate the diffusion term: div(epsilon^2 * grad(phi))
+    // volScalarField diffusionTerm = fvc::div(epsilon * epsilon * gradPhi); 
+    fvScalarMatrix diffusionTerm = fvm::laplacian(epsilon * epsilon, psi);
+    // Calculate the cross terms:
+    volVectorField TermX = fvc::grad(epsilon * epsilonDerivative * gradPhi.component(vector::Y));
+    volVectorField TermY= fvc::grad(epsilon * epsilonDerivative * gradPhi.component(vector::X));
+    volScalarField TermX_X = TermX.component(vector::X);
+    volScalarField TermY_Y = TermY.component(vector::Y);
+    volScalarField epsilonSquared = epsilon/W0 * epsilon/W0 ;
+     // Define the PDE using fvScalarMatrix
+    fvScalarMatrix phiEqn(
+        tau0 * epsilonSquared * fvm::ddt(psi)                                    // Time derivative
+        - diffusionTerm                                      // Diffusion term
+        + TermX_X                                            // Cross term in x-direction
+        - TermY_Y                                            // Cross term in y-direction
+        + psi - pow(psi,3) 
+        - lambda * u * pow((1 - psi* psi),2)
+    );
+    // Relax and solve the equation
+    phiEqn.relax();
+    phiEqn.solve();
+}
+
+#endif
+
+#include "fvCFD.H"
+#include "volFields.H"
+#include "dimensionedScalar.H"
+// #include "laplacianScheme.H"
+#include "fvSchemes.H"
+void solveUEqn(volScalarField& u, volScalarField& psi,dimensionedScalar& D_u, scalar k,dimensionedScalar&  W0  ,Time& runTime)
+{
+    Info << "Solving U equation at time = " << runTime.timeName() << endl;
+    // Calculate coefficients
+    volScalarField coeff = (1 + k - (1 - k) * psi) / 2;
+    volScalarField gradPhiMag = mag(fvc::grad(psi));
+    dimensionedScalar SMALL("SMALL", gradPhiMag.dimensions(), 1e-12);
+    volVectorField normalizedGradPhi = fvc::grad(psi) / (gradPhiMag + SMALL);
+
+    // Define the diffusion term
+    volScalarField diffTerm = D_u * (1 - psi) / 2;  
+
+    volVectorField Term2 = W0 / (2.0 * pow(2, 0.5)) * (1 + (1 - k) * u) *fvc::ddt(psi) * normalizedGradPhi;
+
+    // Define the equation
+    fvScalarMatrix UEqn
+    (
+        fvm::ddt(coeff, u)
+    );
+    // Add other terms
+    // surfaceVectorField diffTermInterpolated = fvc::interpolate(diffTerm);
+    UEqn += fvm::laplacian(diffTerm, u);
+    UEqn += fvc::div(Term2);
+    UEqn += (1 + (1 - k) * u) / 2 * fvc::ddt(psi);
+    // Apply under-relaxation to the equation (if needed)
+    UEqn.relax();
+    // Solve the equation
+    UEqn.solve();
+    Info << "Finished solving U equation" << endl;
+}
+
+
+
+void calculateTheta(
+    const volScalarField& psi,  // Input field for phi
+    volScalarField& theta       // Reference to the result field
+)
+{
+    // Calculate the gradient of phi
+    volVectorField gradPhi = fvc::grad(psi);
+
+    // Calculate theta = atan2(gradPhi_y, gradPhi_x)
+    theta = Foam::atan2(gradPhi.component(1), gradPhi.component(0));
+
+}
+#include "fvCFD.H"
+#include "solveUEqn.H"
+#include "solvePsiEquation.H"
+#include "epsilon.H"
+#include "theta.H"
+#include "InitialCond.H"
+int main(int argc, char *argv[])
+{
+    #include "setRootCase.H"
+    #include "createTime.H"
+    #include "createMesh.H"
+    #include "createFields.H"
+    // initializeFields(psi, u, mesh, radius, delta);
+
+        forAll(psi, cellI)
+    {
+        const point& pt = mesh.C()[cellI];  // Get the cell center point
+
+        if (pow(pt.x(), 2) + pow(pt.y(), 2) < pow(radius, 2) )
+        {
+            psi[cellI] = 1.0;
+            u[cellI] =  - delta; // solid
+        }
+        else
+        {
+            psi[cellI] = -1.0;
+            u[cellI] = -delta; // liquid
+        }
+    }
+    runTime.write();  // Write the initial conditions to the 0 time step
+
+    while (runTime.loop())
+    {
+        Info << "Time = " << runTime.timeName() << nl << endl;
+        /////////////////////////// Solve the Karma model //////////////////////////////
+        calculateTheta(psi, theta);
+        calculateEpsilon(theta, W0, ep4, anisotropy, epsilon);
+        calculateEpsilonDerivative(theta, W0, ep4, anisotropy, epsilonDerivative);
+        // Solve the equation for psi
+        solvePhiEquation(psi, epsilon, epsilonDerivative, u, lambda, tau0, W0 ,runTime);
+        // Solve the equation for u
+        solveUEqn(u, psi, D_u, k, W0, runTime);
+        //////////////////////////////////  END    /////////////////////////////////////
+        runTime.write();  // Write the results
+        Info << "ExecutionTime = " << runTime.elapsedCpuTime() << " s" << nl
+             << "ClockTime = " << runTime.elapsedClockTime() << " s" << nl << endl;
+    }
+
+    Info << "End\n" << endl;
+    return 0;
+}

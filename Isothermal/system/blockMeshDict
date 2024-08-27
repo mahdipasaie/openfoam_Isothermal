@@ -1,0 +1,71 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+convertToMeters 1;
+
+vertices
+(
+    (0 0 0)          // vertex 0
+    (100 0 0)        // vertex 1
+    (100 100 0)      // vertex 2
+    (0 100 0)        // vertex 3
+    (0 0 0.01)       // vertex 4, small thickness for 2D
+    (100 0 0.01)     // vertex 5, small thickness for 2D
+    (100 100 0.01)   // vertex 6, small thickness for 2D
+    (0 100 0.01)     // vertex 7, small thickness for 2D
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (200 200 1) simpleGrading (1 1 1)
+);
+
+edges
+(
+);
+
+boundary
+(
+    inlet
+    {
+        type patch;
+        faces
+        (
+            (0 3 7 4)  // inlet face
+        );
+    }
+    outlet
+    {
+        type patch;
+        faces
+        (
+            (1 2 6 5)  // outlet face
+        );
+    }
+    walls
+    {
+        type wall;
+        faces
+        (
+            (0 1 5 4)  // front face
+            (2 3 7 6)  // back face
+        );
+    }
+    frontAndBack
+    {
+        type empty;
+        faces
+        (
+            (0 1 2 3)  // bottom face
+            (4 5 6 7)  // top face
+        );
+    }
+);
+
+mergePatchPairs
+(
+);

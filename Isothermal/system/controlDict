@@ -1,0 +1,39 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  10
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      controlDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     karmaSolver;
+
+startFrom       startTime;
+startTime       0;
+
+stopAt          endTime;
+endTime         2000;      // Simulation time end, based on 100,000 iterations
+
+deltaT          0.018;     // Time step size
+
+writeControl    timeStep;
+writeInterval   20;       // Write results every 10 time steps
+
+purgeWrite      0;         // Retain all time directories
+
+adjustTimeStep  on;       // Fixed time step
+
+maxCo           1;         // Not needed for fixed deltaT
+maxDeltaT       0.1;     // Maximum allowed time step, same as deltaT
+
+
+libs            ("libOpenFOAM.so");

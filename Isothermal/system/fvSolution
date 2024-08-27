@@ -1,0 +1,53 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+|  \\    /   O peration     | Website:  https://openfoam.org
+|   \\  /    A nd           | Version:  10
+|    \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version     2.0;                     // File format version
+    format      ascii;                   // File format: ASCII
+    class       dictionary;              // File class: dictionary
+    location    "system";                // Directory location
+    object      fvSolution;              // Object name
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+solvers
+{
+    // Solver for velocity field 'u'
+    u
+    {
+        solver          PCG;             // Solver type: Preconditioned Conjugate Gradient
+        preconditioner  DIC;             // Preconditioner: Diagonal Incomplete Cholesky
+        tolerance       1e-08;           // Absolute tolerance for convergence
+        relTol           1e-07;               // Relative tolerance for convergence
+    }
+
+    // Solver for phase-field variable 'psi'
+    psi
+    {
+        solver          PCG;             // Solver type: Preconditioned Conjugate Gradient
+        preconditioner  DIC;             // Preconditioner: Diagonal Incomplete Cholesky
+        tolerance       1e-08;           // Absolute tolerance for convergence
+        relTol           1e-07;               // Relative tolerance for convergence
+    }
+}
+
+relaxationFactors
+{
+    fields
+    {
+        u               0.7;             // Under-relaxation factor for velocity field 'u'
+    }
+
+    equations
+    {
+        psi             0.7;             // Under-relaxation factor for phase-field equation
+    }
+}
+
+// ************************************************************************* //

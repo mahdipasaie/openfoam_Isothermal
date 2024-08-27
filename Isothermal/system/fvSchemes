@@ -1,0 +1,45 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      fvSchemes;
+}
+
+ddtSchemes
+{
+    default CrankNicolson 0.5;  // Semi-implicit, second-order accurate
+}
+
+gradSchemes
+{
+    default         Gauss linear;
+}
+
+divSchemes
+{
+    default         Gauss linear;
+    div(phi,U)      Gauss linearUpwind grad(U);
+}
+
+laplacianSchemes
+{
+    default         Gauss linear limited 0.33;  // Use limited correction for higher accuracy
+}
+
+interpolationSchemes
+{
+    default         linear;
+}
+
+snGradSchemes
+{
+    default         corrected;  // Keep corrected for non-orthogonal meshes
+}
+
+fluxRequired
+{
+    default         no;
+    p;
+}
