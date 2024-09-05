@@ -21,7 +21,7 @@ void solveUEqn(volScalarField& u, volScalarField& psi,dimensionedScalar& D_u, sc
     // Define the equation
     fvScalarMatrix UEqn
     (
-        fvm::ddt(coeff, u)
+        -fvm::ddt(coeff, u)
     );
     // Add other terms
     // surfaceVectorField diffTermInterpolated = fvc::interpolate(diffTerm);
