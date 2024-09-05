@@ -32,7 +32,7 @@ void solvePhiEquation(
         - diffusionTerm                                      // Diffusion term
         + TermX_X                                            // Cross term in x-direction
         - TermY_Y                                            // Cross term in y-direction
-        + psi - pow(psi,3) 
+        - (psi - pow(psi,3) )
         - lambda * u * pow((1 - psi* psi),2)
     );
     // Relax and solve the equation
